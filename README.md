@@ -11,6 +11,7 @@ This program automatically clips your mouse cursor to the Minecraft Bedrock wind
 1. Download the latest release from the [Releases](../../releases) page.
 2. Extract the `.exe` file to a folder of your choice.
 3. Run `SwimMouseCursor.exe`
+4. [Microsoft C++ Runtime Installer if needed](https://aka.ms/vs/17/release/vc_redist.x64.exe)
 
 ## 🚀 Usage
 
