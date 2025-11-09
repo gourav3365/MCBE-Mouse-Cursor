@@ -1,7 +1,9 @@
 // Standalone console utility to confine mouse to the Minecraft Bedrock fullscreen window.
 // Notes:
 //  - Detects Bedrock by process name "Minecraft.Windows.exe" (UWP). Falls back to window title contains "Minecraft".
-//  - Clips only when the window exactly covers its monitor (true fullscreen). 
+//  - Clips only when the window exactly covers its monitor (true fullscreen).
+//  - Configurable hotkey to recenter cursor (default: E key, configurable via config.txt)
+//  - Uses low-level keyboard hook to NOT consume the key press
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -13,12 +15,17 @@
 #include <thread>
 #include <cstdio>
 #include <cstdint>
+#include <fstream>
+#include <cctype>
 
 #pragma comment(lib, "Shlwapi.lib")
 
 static const wchar_t* TARGET_EXE = L"Minecraft.Windows.exe";
-static std::atomic<bool> g_clippingEnabled{ true };
-static std::atomic<bool> g_running{ true };
+static const wchar_t* CONFIG_FILE = L"config.txt";
+static std::atomic<bool> clippingEnabled{ true };
+static std::atomic<bool> running{ true };
+static WORD g_recenterKey = 'E'; // Default recenter key
+static HHOOK g_keyboardHook = nullptr;
 
 static void Log(const wchar_t* fmt, ...)
 {
@@ -138,6 +145,102 @@ static bool IsFullscreenOnAMonitor(HWND hwnd, RECT& outClipRect)
 	return false;
 }
 
+static void RecenterCursor(HWND hwnd)
+{
+	RECT wr{};
+	if (GetWindowRect(hwnd, &wr))
+	{
+		int centerX = (wr.left + wr.right) / 2;
+		int centerY = (wr.top + wr.bottom) / 2;
+		SetCursorPos(centerX, centerY);
+		// Log(L"[*] Cursor recentered to (%d, %d)", centerX, centerY); // this was way too spammy
+	}
+}
+
+static WORD LoadRecenterKeyFromConfig()
+{
+	// Try to open config file
+	std::ifstream configFile(CONFIG_FILE);
+
+	if (!configFile.is_open())
+	{
+		// File doesn't exist, create it with default value
+		Log(L"[*] Config file not found. Creating %s with default key 'E'.", CONFIG_FILE);
+		std::ofstream outFile(CONFIG_FILE);
+		if (outFile.is_open())
+		{
+			outFile << "E";
+			outFile.close();
+		}
+		return 'E';
+	}
+
+	// Read the file content
+	std::string line;
+	std::getline(configFile, line);
+	configFile.close();
+
+	// Trim whitespace
+	while (!line.empty() && std::isspace(static_cast<unsigned char>(line.back())))
+		line.pop_back();
+	while (!line.empty() && std::isspace(static_cast<unsigned char>(line.front())))
+		line.erase(0, 1);
+
+	// Validate: should be a single character
+	if (line.empty())
+	{
+		Log(L"[!] Config file is empty. Defaulting to 'E'.");
+		return 'E';
+	}
+
+	if (line.length() > 1)
+	{
+		Log(L"[!] Config file contains multiple characters ('%S'). Using first character only.", line.c_str());
+	}
+
+	char keyChar = std::toupper(static_cast<unsigned char>(line[0]));
+
+	// Validate it's a letter or number (virtual key compatible)
+	if ((keyChar >= 'A' && keyChar <= 'Z') || (keyChar >= '0' && keyChar <= '9'))
+	{
+		Log(L"[*] Loaded recenter key from config: '%c'", keyChar);
+		return static_cast<WORD>(keyChar);
+	}
+	else
+	{
+		Log(L"[!] Invalid character in config ('%c'). Must be A-Z or 0-9. Defaulting to 'E'.", keyChar);
+		return 'E';
+	}
+}
+
+// Low-level keyboard hook to detect recenter key without consuming it
+static LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
+{
+	if (nCode == HC_ACTION)
+	{
+		KBDLLHOOKSTRUCT* kb = (KBDLLHOOKSTRUCT*)lParam;
+
+		// Only trigger on key down
+		if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN)
+		{
+			HWND fg = GetForegroundWindow();
+
+			// Check if Minecraft is focused
+			if (fg && IsMinecraftWindow(fg))
+			{
+				// Check if it's the recenter key OR escape key
+				if (kb->vkCode == g_recenterKey || kb->vkCode == VK_ESCAPE)
+				{
+					RecenterCursor(fg);
+				}
+			}
+		}
+	}
+
+	// IMPORTANT: Return CallNextHookEx to NOT consume the key
+	return CallNextHookEx(g_keyboardHook, nCode, wParam, lParam);
+}
+
 static BOOL WINAPI ConsoleCtrlHandler(DWORD ctrlType)
 {
 	switch (ctrlType)
@@ -147,7 +250,7 @@ static BOOL WINAPI ConsoleCtrlHandler(DWORD ctrlType)
 		case CTRL_BREAK_EVENT:
 		case CTRL_LOGOFF_EVENT:
 		case CTRL_SHUTDOWN_EVENT:
-		g_running.store(false);
+		running.store(false);
 		ClipCursor(nullptr); // always release on exit
 		return TRUE;
 	}
@@ -163,7 +266,10 @@ int wmain(int argc, wchar_t** argv)
 	Log(L"Play Our MCPE Server: swimgg.club");
 	Log(L"\n");
 
-	// Safety hotkey: Ctrl+Shift+C
+	// Load recenter key from config
+	g_recenterKey = LoadRecenterKeyFromConfig();
+
+	// Safety hotkey: Ctrl+Shift+C (this one can consume the key since it's a special combo)
 	if (!RegisterHotKey(nullptr, 1, MOD_CONTROL | MOD_SHIFT, 'C'))
 	{
 		Log(L"[!] Failed to register hotkey Ctrl+Shift+C (error %lu).", GetLastError());
@@ -171,6 +277,17 @@ int wmain(int argc, wchar_t** argv)
 	else
 	{
 		Log(L"[*] Safety hotkey ready: Ctrl+Shift+C to toggle clipping on/off.");
+	}
+
+	// Install low-level keyboard hook for recenter key (non-blocking)
+	g_keyboardHook = SetWindowsHookExW(WH_KEYBOARD_LL, LowLevelKeyboardProc, GetModuleHandle(nullptr), 0);
+	if (!g_keyboardHook)
+	{
+		Log(L"[!] Failed to install keyboard hook (error %lu).", GetLastError());
+	}
+	else
+	{
+		Log(L"[*] Recenter hotkey ready: Press '%c' to recenter cursor (non-blocking).", (char)g_recenterKey);
 	}
 
 	Log(L"[*] CursorClipperConsole running. Looking for: %s", TARGET_EXE);
@@ -185,24 +302,27 @@ int wmain(int argc, wchar_t** argv)
 	auto lastPoll = GetTickCount();
 	const DWORD POLL_MS = 10;
 
-	while (g_running.load())
+	while (running.load())
 	{
-		// Non-blocking message pump (for hotkey)
+		// Non-blocking message pump (for hotkey and hook)
 		while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE))
 		{
-			if (msg.message == WM_HOTKEY && msg.wParam == 1)
+			if (msg.message == WM_HOTKEY)
 			{
-				// Toggle clipping on/off
-				g_clippingEnabled.store(!g_clippingEnabled.load());
-				if (!g_clippingEnabled.load())
+				if (msg.wParam == 1)
 				{
-					ClipCursor(nullptr);
-					lastClipped = false;
-					Log(L"[=] Clipping DISABLED — cursor released.");
-				}
-				else
-				{
-					Log(L"[=] Clipping ENABLED — will clip when fullscreen.");
+					// Toggle clipping on/off
+					clippingEnabled.store(!clippingEnabled.load());
+					if (!clippingEnabled.load())
+					{
+						ClipCursor(nullptr);
+						lastClipped = false;
+						Log(L"[=] Clipping DISABLED — cursor released.");
+					}
+					else
+					{
+						Log(L"[=] Clipping ENABLED — will clip when fullscreen.");
+					}
 				}
 			}
 			TranslateMessage(&msg);
@@ -217,7 +337,7 @@ int wmain(int argc, wchar_t** argv)
 			HWND fg = GetForegroundWindow();
 
 			// If clipping is disabled, always release
-			if (!g_clippingEnabled.load())
+			if (!clippingEnabled.load())
 			{
 				if (lastClipped)
 				{
@@ -285,6 +405,11 @@ int wmain(int argc, wchar_t** argv)
 	}
 
 	// Cleanup
+	if (g_keyboardHook)
+	{
+		UnhookWindowsHookEx(g_keyboardHook);
+	}
+
 	ClipCursor(nullptr);
 	UnregisterHotKey(nullptr, 1);
 	Log(L"[*] Exiting. Cursor released.");
