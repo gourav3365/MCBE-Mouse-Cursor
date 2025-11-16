@@ -1,4 +1,4 @@
-# Swim Mouse Cursor
+# Minecraft Bedrock Mouse Cursor Fix
 A lightweight Windows utility to fix Minecraft Bedrock Edition's 1.21.121 mouse cursor escaping issues by keeping it confined to the game window.
 
 ## 🎮 What Does This Do?
@@ -93,13 +93,8 @@ If you see `[!] Invalid key name in config` in the console:
 - ✅ Clean console interface with status updates
 - ✅ Intelligent window detection (only clips when Minecraft is truly visible and topmost)
 
-## 💬 Support
-Join our Discord: [discord.gg/swim](https://discord.gg/swim)
-
-Play our MCPE Server: **swimgg.club**
-
 ## 📝 Credits
-Created by Swedeachu, aka Swimfan72
+Created by Swedeachu
 
 ## ⚠️ Notes
 - This program is designed specifically for Minecraft Bedrock Edition (Windows 10/11).
